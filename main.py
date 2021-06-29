@@ -166,21 +166,22 @@ open_dir_button.grid(row=0, column=0, padx=10, pady=5)
 current_dir_text = StringVar(input_area)
 current_dir_text.set("Huidige map: " + app_state.active_folder)
 current_dir_label = Label(input_area, textvariable=current_dir_text)
-current_dir_label.grid(row=0, column=1)
+current_dir_label.grid(row=0, column=1, sticky=W)
 
 # file format options
 file_format_options = StringVar(input_area)
-file_format_options.set("mp3")
+file_format_options.set(app_state.active_file_format)
 file_format_options.trace("w", lambda *args: update_active_file_format(app_state, file_format_options.get(),
                                                                        file_format_text))
 file_format_menu = OptionMenu(input_area, file_format_options, "mp3", "flac", "mp4")
+file_format_menu.config(width=7)
 file_format_menu.grid(row=1, column=0, pady=5)
 
 # file format info text & label
 file_format_text = StringVar(input_area)
 file_format_text.set(file_format_desc_of(app_state.active_file_format))
 file_format_label = Label(input_area, textvariable=file_format_text)
-file_format_label.grid(row=1, column=1)
+file_format_label.grid(row=1, column=1, sticky=W)
 
 # # URL input field
 url_input_label = Label(input_area, text="Link: ")
@@ -212,7 +213,7 @@ progress_text.pack(fill=X, padx=10)
 
 # Progress bar
 progress_bar_canvas = Canvas(download_area, height=30)
-progress_bar_canvas.pack(fill=X)
+progress_bar_canvas.pack(fill=X, padx=10, pady=5)
 progress_bar = progress_bar_canvas.create_rectangle(0, 0, 0, 30, fill='#158CBA')
 
 root.protocol("WM_DELETE_WINDOW", lambda: save_app_state(app_state))

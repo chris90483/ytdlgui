@@ -13,6 +13,7 @@ import os
 
 from tkinter import *
 from tkinter.filedialog import askdirectory
+import clipboard
 
 
 def ydl_progress_hook(d):
@@ -24,17 +25,18 @@ def ydl_progress_hook(d):
             app_state.currently_downloading = True
         else:
             progress_text.delete("end-1c linestart", "end")
-            #progress_text.tag_add(app_state.progress_text_position, "1.0", "1.1000")
-            #progress_text.tag_config(app_state.progress_text_position, background="black", foreground="white")
-            # todo: achtergrond kleurtjes werken nog niet
-            progress_text.insert(app_state.progress_text_position, "Bezig met downloaden (" + "{:.2f}".format((d['downloaded_bytes'] / d['total_bytes']) * 100) + "%)")
+            downloaded_percentage = (d['downloaded_bytes'] / d['total_bytes']) * 100
+            progress_text.insert(app_state.progress_text_position, "Bezig met downloaden (" + "{:.2f}".format(downloaded_percentage) + "%)")
+            progress_bar_canvas.coords(progress_bar, 0, 0, (progress_bar_canvas.winfo_width() / 100) * downloaded_percentage, 30)
             progress_text.see(app_state.progress_text_position)
     elif d['status'] == 'error':
         app_state.currently_downloading = False
+        progress_bar_canvas.coords(progress_bar, 0, 0, 0, 30)
         progress_text.insert(END, "\nMislukt.\n")
         progress_text.see(END)
     elif d['status'] == 'finished':
         app_state.currently_downloading = False
+        progress_bar_canvas.coords(progress_bar, 0, 0, 0, 30)
         progress_text.insert(END, "\nDownload klaar. Aan het converteren..\n")
         progress_text.see(END)
 
@@ -150,54 +152,69 @@ if os.path.isfile("app_state.json"):
 
 # tk setup
 root.wm_title("YouTube Downloader")
-root.geometry("800x600")
 
-# current dir text & label
-current_dir_text = StringVar(root)
-current_dir_text.set("Huidige map: " + app_state.active_folder)
-current_dir_label = Label(root, textvariable=current_dir_text)
-current_dir_label.pack()
-current_dir_label.place(x=95, y=13)
+# input area
+input_area = Frame(root)
+input_area.pack(fill=X)
 
 # open dir dialog button
-open_dir_button = Button(root, text="kies map", command=lambda: show_choose_folder_dialog(app_state, current_dir_text),
+open_dir_button = Button(input_area, text="kies map", command=lambda: show_choose_folder_dialog(app_state, current_dir_text),
                          width=10, height=1)
-open_dir_button.pack()
-open_dir_button.place(x=10, y=10)
+open_dir_button.grid(row=0, column=0, padx=10, pady=5)
 
-# file format info text & label
-file_format_text = StringVar(root)
-file_format_text.set(file_format_desc_of(app_state.active_file_format))
-file_format_label = Label(root, textvariable=file_format_text)
-file_format_label.pack()
-file_format_label.place(x=95, y=40)
+# current dir text & label
+current_dir_text = StringVar(input_area)
+current_dir_text.set("Huidige map: " + app_state.active_folder)
+current_dir_label = Label(input_area, textvariable=current_dir_text)
+current_dir_label.grid(row=0, column=1)
 
 # file format options
-file_format_options = StringVar(root)
+file_format_options = StringVar(input_area)
 file_format_options.set("mp3")
 file_format_options.trace("w", lambda *args: update_active_file_format(app_state, file_format_options.get(),
                                                                        file_format_text))
-file_format_menu = OptionMenu(root, file_format_options, "mp3", "flac", "mp4")
-file_format_menu.pack()
-file_format_menu.place(x=10, y=40)
+file_format_menu = OptionMenu(input_area, file_format_options, "mp3", "flac", "mp4")
+file_format_menu.grid(row=1, column=0, pady=5)
 
-# URL input field
-url_input_label = Label(root, text="Link (plakken met ctrl V):")
-url_input_label.pack()
-url_input_label.place(x=150, y=100)
-url_input_entry = Entry(root, bd=1, width=50)  # bd is border
-url_input_entry.pack()
-url_input_entry.place(x=290, y=100)
+# file format info text & label
+file_format_text = StringVar(input_area)
+file_format_text.set(file_format_desc_of(app_state.active_file_format))
+file_format_label = Label(input_area, textvariable=file_format_text)
+file_format_label.grid(row=1, column=1)
 
-# Progress text
-progress_text = Text(root, width=90, height=25)
-progress_text.pack()
-progress_text.place(x=25, y=180)
+# # URL input field
+url_input_label = Label(input_area, text="Link: ")
+url_input_label.grid(row=2, column=0, padx=10, pady=5)
+
+def url_entry_on_right_click(label):
+    label.delete(0, END)
+    label.insert(0, clipboard.paste())
+
+def url_entry_on_left_click(label):
+    label.delete(0, END)
+
+url_input_entry = Entry(input_area, bd=1, width=50)  # bd is border
+url_input_entry.bind("<Button-3>", lambda e: url_entry_on_right_click(url_input_entry)) # paste contents on right click
+url_input_entry.bind("<Button-1>", lambda e: url_entry_on_left_click(url_input_entry)) # delete contents on left click
+url_input_entry.grid(row=2, column=1)
+
+# Download area
+download_area = Frame(root)
+download_area.pack(fill=X, padx=10)
 
 # Download button
-download_button = Button(root, text="Downloaden", command=lambda: download(url_input_entry, app_state))
-download_button.pack()
-download_button.place(x=330, y=140)
+download_button = Button(download_area, text="Downloaden", command=lambda: download(url_input_entry, app_state))
+download_button.pack(fill=X, padx=10)
+
+# Progress text
+progress_text = Text(download_area, width=60, height=8)
+progress_text.pack(fill=X, padx=10)
+
+# Progress bar
+progress_bar_canvas = Canvas(download_area, height=30)
+progress_bar_canvas.pack(fill=X)
+progress_bar = progress_bar_canvas.create_rectangle(0, 0, 0, 30, fill='#158CBA')
 
 root.protocol("WM_DELETE_WINDOW", lambda: save_app_state(app_state))
 root.mainloop()
+

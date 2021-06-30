@@ -14,8 +14,8 @@ import path
 
 class RadioRecorder(object):
 
-    def __init__(self, recorder_state):
-        self.main_directory = recorder_state['main_directory']
+    def __init__(self, app_state):
+        self.active_folder = app_state['recorder_state']['active_folder']
         self.stations = [{
                 'url': 'http://freshgrass.streamguys1.com/folkalley-128mp3',
                 'name': 'Folk Alley',
@@ -23,7 +23,7 @@ class RadioRecorder(object):
                 'subdirectory': '/folk_alley/'
             }
         ]
-        for station in recorder_state['stations']:
+        for station in app_state['recorder_state']['stations']:
             if not station['name'] == 'Folk Alley':
                 self.stations.append(station)
 
@@ -51,7 +51,7 @@ class RadioRecorder(object):
     def record(self, station):
         r = requests.get(station['url'], stream=True)
         current_title = get_current_title(station['url'])
-        with open(path.join(self.main_directory, station['subdirectory'], current_title), 'wb') as f:
+        with open(path.join(self.active_folder, station['subdirectory'], current_title), 'wb') as f:
             try:
                 prev_tick = time.time()
                 for block in r.iter_content(1024):

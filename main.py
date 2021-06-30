@@ -6,38 +6,139 @@ from ttkbootstrap import Style
 
 import subprocess
 import _thread
+import threading
 import youtube_dl
 
 import glob
 import os
+import time
 
 from tkinter import *
 from tkinter.filedialog import askdirectory
 import clipboard
 
 
+class ProgressAnimation(object):
+    def __init__(self, canvas, rect):
+        self.x = 0
+        self.y = 0
+        self.is_converting = False
+        self.is_downloading = False
+        self.canvas = canvas
+        self.rect = rect
+        self.thread = threading.Thread(target=self.run_converting_animation)
+        self.downloaded_percentage = 0
+
+    def run_downloading_animation(self):
+        last_frame_time = time.time() * 1000
+        while self.is_downloading:
+            if time.time() * 1000 - last_frame_time > 2:
+                last_frame_time = time.time() * 1000
+                target_width = (self.canvas.winfo_width() / 100) * self.downloaded_percentage
+                if self.y < target_width:
+                    self.y += 1
+            self.canvas.coords(self.rect, 0, 0, self.y, 30)
+
+
+    def run_converting_animation(self):
+        last_frame_time = time.time() * 1000
+        while self.is_converting:
+            if time.time() * 1000 - last_frame_time > 2:
+                last_frame_time = time.time() * 1000
+                self.canvas.coords(self.rect, self.x, 0, self.y, 30)
+                canvas_width = self.canvas.winfo_width()
+                if self.x == 0:
+                    if self.y < 60:
+                        self.y += 1
+                    else:
+                        self.x += 1
+                        self.y += 1
+                else:
+                    if self.y >= canvas_width:
+                        if self.x < canvas_width:
+                            self.x += 1
+                        else:
+                            self.x = 0
+                            self.y = 0
+                    else:
+                        self.y += 1
+                        self.x += 1
+
+    def to_finished(self):
+        last_frame_time = time.time() * 1000
+        while self.x > 0 or self.y < self.canvas.winfo_width():
+            if time.time() * 1000 - last_frame_time > 1:
+                last_frame_time = time.time() * 1000
+                if self.x > 0:
+                    self.x -= 1
+                if self.y < self.canvas.winfo_width():
+                    self.y += 1
+                self.canvas.coords(self.rect, self.x, 0, self.y, 30)
+
+    def start_downloading(self):
+        if not self.is_downloading:
+            self.is_downloading = True
+
+            self.canvas.itemconfig(self.rect, fill='#158CBA')
+            self.thread = threading.Thread(target=self.run_downloading_animation)
+            self.y = 0
+            self.thread.start()
+
+
+    def start_converting(self):
+        self.stop_downloading()
+        if not self.is_converting:
+            self.is_converting = True
+
+            self.canvas.itemconfig(self.rect, fill='#158CBA')
+            self.thread = threading.Thread(target=self.run_converting_animation)
+            self.x = 0
+            self.y = 60
+            self.thread.start()
+
+    def start_finshed(self):
+        self.canvas.itemconfig(self.rect, fill='green')
+        self.thread = threading.Thread(target=self.to_finished)
+        self.thread.start()
+
+    def stop_converting(self):
+        if self.is_converting:
+            self.is_converting = False
+            self.start_finshed()
+
+    def stop_downloading(self):
+        if self.is_downloading:
+            self.is_downloading = False
+            last_frame_time = time.time() * 1000
+            while self.y < self.canvas.winfo_width():
+                if time.time() * 1000 - last_frame_time > 1:
+                    last_frame_time = time.time() * 1000
+                    self.y += 1
+                self.canvas.coords(self.rect, 0, 0, self.y, 30)
+            self.downloaded_percentage = 0
+
 def ydl_progress_hook(d):
     if d['status'] == 'downloading':
         if not app_state.currently_downloading:
-            progress_text.insert(END, "Bezig met downloaden..")
+            progress_text.insert(END, "Er begint een nieuwe download..")
             progress_text.see(END)
             app_state.progress_text_position = progress_text.index("end-1c linestart")
             app_state.currently_downloading = True
+            progress_animation.start_downloading()
         else:
             progress_text.delete("end-1c linestart", "end")
             downloaded_percentage = (d['downloaded_bytes'] / d['total_bytes']) * 100
+            progress_animation.downloaded_percentage = downloaded_percentage
             progress_text.insert(app_state.progress_text_position, "Bezig met downloaden (" + "{:.2f}".format(downloaded_percentage) + "%)")
-            progress_bar_canvas.coords(progress_bar, 0, 0, (progress_bar_canvas.winfo_width() / 100) * downloaded_percentage, 30)
             progress_text.see(app_state.progress_text_position)
     elif d['status'] == 'error':
         app_state.currently_downloading = False
-        progress_bar_canvas.coords(progress_bar, 0, 0, 0, 30)
         progress_text.insert(END, "\nMislukt.\n")
         progress_text.see(END)
     elif d['status'] == 'finished':
         app_state.currently_downloading = False
-        progress_bar_canvas.coords(progress_bar, 0, 0, 0, 30)
         progress_text.insert(END, "\nDownload klaar. Aan het converteren..\n")
+        progress_animation.start_converting()
         progress_text.see(END)
 
 class AppState:
@@ -132,6 +233,7 @@ def download(url_input_entry, app_state):
             ydl.download([url_input_entry_dl.get()])
 
         # move the file
+        progress_animation.stop_converting()
         list_of_files = glob.glob("*." + app_state.active_file_format)  # * means all if need specific format then *.csv
         latest_file = max(list_of_files, key=os.path.getctime)
         print("moving " + latest_file + " to " + app_state.active_folder + "/" + latest_file)
@@ -215,6 +317,8 @@ progress_text.pack(fill=X, padx=10)
 progress_bar_canvas = Canvas(download_area, height=30)
 progress_bar_canvas.pack(fill=X, padx=10, pady=5)
 progress_bar = progress_bar_canvas.create_rectangle(0, 0, 0, 30, fill='#158CBA')
+
+progress_animation = ProgressAnimation(progress_bar_canvas, progress_bar)
 
 root.protocol("WM_DELETE_WINDOW", lambda: save_app_state(app_state))
 root.mainloop()

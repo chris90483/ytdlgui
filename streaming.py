@@ -9,13 +9,13 @@ except ImportError:  # Python 3
     import urllib.request as urllib2
 import requests
 import time
-import path
+import os.path as path
 
 
 class RadioRecorder(object):
 
     def __init__(self, app_state):
-        self.active_folder = app_state['recorder_state']['active_folder']
+        self.active_folder = app_state.recorder_state['active_folder']
         self.stations = [{
                 'url': 'http://freshgrass.streamguys1.com/folkalley-128mp3',
                 'name': 'Folk Alley',
@@ -23,7 +23,7 @@ class RadioRecorder(object):
                 'subdirectory': '/folk_alley/'
             }
         ]
-        for station in app_state['recorder_state']['stations']:
+        for station in app_state.recorder_state['stations']:
             if not station['name'] == 'Folk Alley':
                 self.stations.append(station)
 
@@ -47,11 +47,19 @@ class RadioRecorder(object):
             sys.exit('no title found')
         return title.decode(encoding, errors='replace')
 
+    def record(self, station_name):
+        active_station = None
+        for station in self.stations:
+            if station['name'] == station_name:
+                active_station = station
+                break
 
-    def record(self, station):
-        r = requests.get(station['url'], stream=True)
-        current_title = get_current_title(station['url'])
-        with open(path.join(self.active_folder, station['subdirectory'], current_title), 'wb') as f:
+        if active_station is None:
+            return
+
+        r = requests.get(active_station['url'], stream=True)
+        current_title = self.get_current_title(active_station['url'])
+        with open(path.join(self.active_folder, active_station['subdirectory'], current_title), 'wb') as f:
             try:
                 prev_tick = time.time()
                 for block in r.iter_content(1024):

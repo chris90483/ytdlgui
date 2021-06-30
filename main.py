@@ -12,6 +12,8 @@ import glob
 import os
 import time
 
+from streaming import RadioRecorder
+
 from tkinter import *
 from tkinter.filedialog import askdirectory
 import clipboard
@@ -150,7 +152,9 @@ class AppState(object):
     def __init__(self):
         self.downloader_active_folder = str(Path.home())
         self.recorder_state = {
-            'active_folder': str(Path.home())
+            'active_folder': str(Path.home()),
+            'active_station_name': 'Folk Alley',
+            'stations': []
         }
         self.active_file_format = "mp3"
         self.progress_text_position = "1.0"
@@ -274,6 +278,10 @@ def download(url_input_entry, app_state):
     threading.Thread(target=dl, args=(url_input_entry, None)).start()
 
 
+def record(app_state):
+    radio_recorder.record(app_state.recorder_state['active_station_name'])
+
+
 style = Style(theme='lumen')
 root = style.master
 app = Window(root)
@@ -282,6 +290,9 @@ app = Window(root)
 app_state = AppState()
 if os.path.isfile("app_state.json"):
     app_state = load_app_state(app_state)
+
+# radio recorder
+radio_recorder = RadioRecorder(app_state)
 
 # tk setup
 root.wm_title("YouTube Downloader")
@@ -389,6 +400,9 @@ recorder_current_dir_text = StringVar(recorder_input_area)
 recorder_current_dir_text.set("Huidige map: " + app_state.recorder_state['active_folder'])
 recorder_current_dir_label = Label(recorder_input_area, textvariable= recorder_current_dir_text)
 recorder_current_dir_label.grid(row=0, column=1, sticky=W)
+
+record_button = Button(recorder_input_area, text="Opnemen", command=lambda: record(app_state))
+record_button.grid(row=1, column=0)
 
 ########
 # MAIN #

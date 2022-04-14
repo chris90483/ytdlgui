@@ -1,0 +1,1 @@
+python pyinstaller.py --noconsole --onefile --add-binary C:\Program Files\FFMPEG\ffmpeg-20200831-4a11a6f-win64-static\bin\ffmpeg.exe --add-data C:\Users\Chris\AppData\Local\Programs\Python\Python39\Lib\site-packages\ttkbootstrap;ttkbootstrap YoutubeDownloader.py -y
